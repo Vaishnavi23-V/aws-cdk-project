@@ -2,7 +2,8 @@ from aws_cdk import core
 from aws_cdk.aws_dynamodb import Table, Attribute, AttributeType, BillingMode
 from aws_cdk.aws_lambda import Function, Runtime, Code
 from aws_cdk.aws_iam import PolicyStatement, Effect
-from aws_cdk.aws_apigateway import LambdaRestApi
+from aws_cdk.aws_apigateway import LambdaRestApi, Cors
+from aws_cdk.aws_cognito import UserPool, UserPoolClient
 
 class MyCdkAppStack(core.Stack):
 
@@ -21,7 +22,7 @@ class MyCdkAppStack(core.Stack):
             self, "HelloFunction",
             runtime=Runtime.PYTHON_3_9,
             handler="handler.hello",
-            code=Code.from_asset("lambda"),  
+            code=Code.from_asset("lambda"),
             environment={"DYNAMODB_TABLE": dynamo_table.table_name}
         )
 
@@ -37,8 +38,22 @@ class MyCdkAppStack(core.Stack):
             )
         )
 
-        # API Gateway
+        # API Gateway with CORS support
         api = LambdaRestApi(
             self, "HelloApi",
-            handler=hello_function
+            handler=hello_function,
+            default_cors_preflight_options={
+                "allow_origins": Cors.ALL_ORIGINS,
+                "allow_methods": Cors.ALL_METHODS,
+                "allow_headers": ["*"]
+            }
+        )
+
+        # Cognito User Pool
+        user_pool = UserPool(self, "MyUserPool", removal_policy=core.RemovalPolicy.DESTROY)
+
+        # Cognito User Pool Client
+        user_pool_client = UserPoolClient(
+            self, "MyUserPoolClient",
+            user_pool=user_pool
         )
