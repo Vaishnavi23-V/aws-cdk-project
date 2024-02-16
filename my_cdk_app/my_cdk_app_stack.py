@@ -45,7 +45,6 @@ class MyCdkAppStack(core.Stack):
                 resources=[dynamo_table.table_arn]
             )
         )
-        
 
         # API Gateway with CORS support
         api = LambdaRestApi(
@@ -66,29 +65,28 @@ class MyCdkAppStack(core.Stack):
             self, "MyUserPoolClient",
             user_pool=user_pool
         )
-        
-          # Create an Authorizer for API Gateway
+
+        # Create an Authorizer for API Gateway
         cognito_authorizer = apigateway.CognitoUserPoolsAuthorizer(
             self, "CognitoAuthorizer",
             cognito_user_pools=[user_pool],
             identity_source="method.request.header.Authorization",
         )
-        
 
         # Associate the authorizer with the desired resource or method
         api.root.add_method("GET", authorizer=cognito_authorizer)
-        
-         # Custom domain for the User Pool
+
+        # Custom domain for the User Pool
         user_pool_domain = cognito.CfnUserPoolDomain(
             self, "MyUserPoolDomain",
             user_pool_id=user_pool.user_pool_id,
-            domain="my-awesome-app" 
+            domain="my-awesome-app"
         )
-        
-         # Grant permissions for Cognito to use the custom domain
+
+        # Grant permissions for Cognito to use the custom domain
         user_pool_domain.node.add_dependency(user_pool)
         user_pool_domain.node.add_dependency(user_pool_client)
-        
+
         # Create a user in the Cognito User Pool
         user = cognito.CfnUserPoolUser(
             self, "MyUser",
@@ -121,6 +119,48 @@ class MyCdkAppStack(core.Stack):
         s3_bucket.add_to_resource_policy(iam.PolicyStatement(
         actions=["s3:GetObject"],
         effect=Effect.ALLOW,
-        principals=[iam.ArnPrincipal("*")],    # Use AnyPrincipal to represent any AWS identity
+        principals=[iam.ArnPrincipal("*")],    
        resources=[f"{s3_bucket.bucket_arn}/*"]
-   ))
+       ))
+
+        admin_function = Function(
+            self, "AdminFunction",
+            runtime=Runtime.PYTHON_3_9,
+            handler="admin_handler.admin",
+            code=Code.from_asset("lambda"),
+            environment={
+                "COGNITO_USER_POOL_ID": user_pool.user_pool_id,
+            },
+            role=iam.Role(
+                self, "LambdaRole",
+                assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
+            )
+        )
+
+        # Attach an inline policy to the role granting necessary Cognito permissions
+        admin_function.role.add_to_policy(PolicyStatement(
+            actions=["cognito-idp:AdminCreateUser", "cognito-idp:AdminDeleteUser"],
+            resources=[user_pool.user_pool_arn]
+        ))
+        
+        # Modify the existing API Gateway for admin functions
+        admin_api = LambdaRestApi(
+        self, "AdminApi",
+        handler=admin_function,
+        default_cors_preflight_options={
+         "allow_origins": Cors.ALL_ORIGINS,
+         "allow_methods": Cors.ALL_METHODS,
+         "allow_headers": ["*"]
+      }
+    )
+    
+         # Cognito Authorizer for the admin API
+        admin_cognito_authorizer = apigateway.CognitoUserPoolsAuthorizer(
+         self, "AdminCognitoAuthorizer",
+         cognito_user_pools=[user_pool],
+         identity_source="method.request.header.Authorization",
+     )
+     
+        admin_api.root.add_method("GET", authorizer=admin_cognito_authorizer)
+
+    
