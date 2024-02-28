@@ -162,5 +162,6 @@ class MyCdkAppStack(core.Stack):
      )
      
         admin_api.root.add_method("GET", authorizer=admin_cognito_authorizer)
+        admin_api.root.add_method("POST", authorizer=admin_cognito_authorizer)
 
     
