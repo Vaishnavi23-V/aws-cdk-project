@@ -1,8 +1,8 @@
 from aws_cdk import (
     aws_cognito as cognito, 
-    core,
     aws_apigateway as apigateway,
     aws_s3 as s3,
+    Stack
 )
 from aws_cdk.aws_dynamodb import Table, Attribute, AttributeType, BillingMode
 from aws_cdk.aws_lambda import Function, Runtime, Code
@@ -12,11 +12,12 @@ from aws_cdk.aws_cognito import UserPool, UserPoolClient
 from aws_cdk.aws_s3 import Bucket, BlockPublicAccess
 from aws_cdk.aws_s3_deployment import BucketDeployment, Source
 from aws_cdk import aws_iam as iam
+from constructs import Construct
 
-class MyCdkAppStack(core.Stack):
+class MyCdkAppStack(Stack):
 
-    def __init__(self, scope: core.Construct, id: str, **kwargs) -> None:
-        super().__init__(scope, id, **kwargs)
+   def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+        super().__init__(scope, construct_id, **kwargs)
 
         # DynamoDB Table
         dynamo_table = Table(
@@ -58,14 +59,19 @@ class MyCdkAppStack(core.Stack):
         )
 
         # Cognito User Pool
-        user_pool = UserPool(self, "MyUserPool", removal_policy=core.RemovalPolicy.DESTROY)
+        user_pool = UserPool(self, "MyUserPool")
 
         # Cognito User Pool Client
         user_pool_client = UserPoolClient(
-            self, "MyUserPoolClient",
-            user_pool=user_pool
+          self, "MyUserPoolClient",
+          user_pool=user_pool,
+          o_auth=cognito.OAuthSettings(
+              flows=cognito.OAuthFlows(
+              implicit_code_grant=True,  
+              authorization_code_grant=False  
+    )
+)
         )
-
         # Create an Authorizer for API Gateway
         cognito_authorizer = apigateway.CognitoUserPoolsAuthorizer(
             self, "CognitoAuthorizer",
@@ -80,7 +86,7 @@ class MyCdkAppStack(core.Stack):
         user_pool_domain = cognito.CfnUserPoolDomain(
             self, "MyUserPoolDomain",
             user_pool_id=user_pool.user_pool_id,
-            domain="my-awesome-app"
+            domain="new-awesome-app"
         )
 
         # Grant permissions for Cognito to use the custom domain
@@ -112,7 +118,7 @@ class MyCdkAppStack(core.Stack):
         # Upload HTML files to S3 bucket using S3Deployment
         s3_deployment = BucketDeployment(
             self, "MyS3Deployment",
-            sources=[Source.asset("frontend")],
+            sources=[Source.asset("frontend/my-vue-app/dist")],
             destination_bucket=s3_bucket
         )
       # Add public read access policy to the S3 Bucket
@@ -122,7 +128,8 @@ class MyCdkAppStack(core.Stack):
         principals=[iam.ArnPrincipal("*")],    
        resources=[f"{s3_bucket.bucket_arn}/*"]
        ))
-
+       
+       # Define admin lambda
         admin_function = Function(
             self, "AdminFunction",
             runtime=Runtime.PYTHON_3_9,
@@ -143,7 +150,7 @@ class MyCdkAppStack(core.Stack):
             resources=[user_pool.user_pool_arn]
         ))
         
-        # Modify the existing API Gateway for admin functions
+        # API Gateway for admin functions
         admin_api = LambdaRestApi(
         self, "AdminApi",
         handler=admin_function,

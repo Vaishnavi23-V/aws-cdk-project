@@ -37,8 +37,8 @@ const handleLogin = async () => {
   const userData = {
     Username: username.value,
     Pool: new CognitoUserPool({
-      UserPoolId: "ap-southeast-2_3BBwBHYTU",
-      ClientId: "69nion8kb26b8jouajimcubdsb",
+      UserPoolId: "us-east-1_qnxMFVVGv",
+      ClientId: "22c0mmogt0qosl1a63vms1ch0n",
     }),
   };
 
