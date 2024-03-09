@@ -6,7 +6,7 @@ from aws_cdk import (
 )
 from aws_cdk.aws_dynamodb import Table, Attribute, AttributeType, BillingMode
 from aws_cdk.aws_lambda import Function, Runtime, Code
-from aws_cdk.aws_iam import PolicyStatement, Effect
+from aws_cdk.aws_iam import PolicyStatement, Effect, ManagedPolicy
 from aws_cdk.aws_apigateway import LambdaRestApi, Cors
 from aws_cdk.aws_cognito import UserPool, UserPoolClient
 from aws_cdk.aws_s3 import Bucket, BlockPublicAccess
@@ -46,6 +46,8 @@ class MyCdkAppStack(Stack):
                 resources=[dynamo_table.table_arn]
             )
         )
+        # Attach DynamoDBFullAccess managed policy to the Lambda role
+        hello_function.role.add_managed_policy(ManagedPolicy.from_aws_managed_policy_name("AmazonDynamoDBFullAccess"))
 
         # API Gateway with CORS support
         api = LambdaRestApi(
