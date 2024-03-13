@@ -1,6 +1,11 @@
 # Host a web app in AWS with custom domain
 
-1. Register a custom domain in route53 console.
+# Prerequisite
+
+1. Register a custom domain in route53 console manually.
+
+# Steps with cdk
+
 2. Give npm run build in the frontend folder, dist folder gets generated which is the thing u need to deploy
 3. Create a s3 bucket with the custom domain name and make it public , enable static web hosting.
 4. Create another bucket with subdomain, with static web hosting enabled.
@@ -10,4 +15,9 @@
 8. Go to route 53, and click on create record. In that choose, A type. Click on alias to cloundfront distribution and select the created distribution
 9. You will be able to access the custom domain.
 
+# Additional points to be noted
+
 No cdk attribute found for adding alternative domain name , CNAME. Added manually in cloudfront.
+
+The certificate for cloudfront will be issued only in us-east-1, but there is no construct to specify region in Certificate configuration.
+If we deploy the resources in us-east-1, everything will work fine. But should check, how to get certificate when using different regions.
