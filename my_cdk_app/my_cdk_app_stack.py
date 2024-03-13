@@ -1,7 +1,6 @@
 from aws_cdk import (
     aws_cognito as cognito, 
     aws_apigateway as apigateway,
-    aws_s3 as s3,
     Stack
 )
 from aws_cdk.aws_dynamodb import Table, Attribute, AttributeType, BillingMode
@@ -9,8 +8,6 @@ from aws_cdk.aws_lambda import Function, Runtime, Code
 from aws_cdk.aws_iam import PolicyStatement, Effect, ManagedPolicy
 from aws_cdk.aws_apigateway import LambdaRestApi, Cors
 from aws_cdk.aws_cognito import UserPool, UserPoolClient
-from aws_cdk.aws_s3 import Bucket, BlockPublicAccess
-from aws_cdk.aws_s3_deployment import BucketDeployment, Source
 from aws_cdk import aws_iam as iam
 from constructs import Construct
 
@@ -35,17 +32,6 @@ class MyCdkAppStack(Stack):
             environment={"DYNAMODB_TABLE": dynamo_table.table_name}
         )
 
-        # Permissions for Lambda to access DynamoDB
-        dynamo_table.grant_read_write_data(hello_function)
-
-        # Additional IAM permissions for PutItem
-        hello_function.add_to_role_policy(
-            statement=PolicyStatement(
-                actions=["dynamodb:PutItem"],
-                effect=Effect.ALLOW,
-                resources=[dynamo_table.table_arn]
-            )
-        )
         # Attach DynamoDBFullAccess managed policy to the Lambda role
         hello_function.role.add_managed_policy(ManagedPolicy.from_aws_managed_policy_name("AmazonDynamoDBFullAccess"))
 
@@ -54,9 +40,9 @@ class MyCdkAppStack(Stack):
             self, "HelloApi",
             handler=hello_function,
             default_cors_preflight_options={
-                "allow_origins": Cors.ALL_ORIGINS,
-                "allow_methods": Cors.ALL_METHODS,
-                "allow_headers": ["*"]
+                "allow_origins": ["https://new-awesome-app.com" ],
+                "allow_methods": ["GET", "POST"],
+                "allow_headers": ["Content-Type", "Authorization"]
             }
         )
 
@@ -108,29 +94,6 @@ class MyCdkAppStack(Stack):
             force_alias_creation=False
         )
 
-      # S3 Bucket for HTML files with web hosting and public ACL permissions
-        s3_bucket = Bucket(
-            self, "MyS3Bucket",
-            block_public_access=BlockPublicAccess(restrict_public_buckets=False),
-            encryption=s3.BucketEncryption.S3_MANAGED,
-            website_index_document="index.html",
-            website_error_document="error.html"
-        )
-
-        # Upload HTML files to S3 bucket using S3Deployment
-        s3_deployment = BucketDeployment(
-            self, "MyS3Deployment",
-            sources=[Source.asset("frontend/my-vue-app/dist")],
-            destination_bucket=s3_bucket
-        )
-      # Add public read access policy to the S3 Bucket
-        s3_bucket.add_to_resource_policy(iam.PolicyStatement(
-        actions=["s3:GetObject"],
-        effect=Effect.ALLOW,
-        principals=[iam.ArnPrincipal("*")],    
-       resources=[f"{s3_bucket.bucket_arn}/*"]
-       ))
-       
        # Define admin lambda
         admin_function = Function(
             self, "AdminFunction",
