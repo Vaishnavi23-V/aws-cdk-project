@@ -12,7 +12,6 @@ from aws_cdk.aws_s3 import Bucket, BlockPublicAccess
 from aws_cdk.aws_s3_deployment import BucketDeployment, Source
 from constructs import Construct
 
-
 class FrontendStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -25,25 +24,25 @@ class FrontendStack(Stack):
             "FrontendBucket",
             block_public_access=BlockPublicAccess.BLOCK_ALL,
             encryption=s3.BucketEncryption.S3_MANAGED,
+            versioned=True
         )
 
-        # Deploy frontend files
+        # Deploy frontend build to S3
         s3deploy.BucketDeployment(
             self,
-            "FrontendDeployment",
+            "RootDeployment",
             sources=[Source.asset("dist/xspace-tenant/browser")],
             destination_bucket=s3_bucket,
-            # Automatically invalidate CloudFront cache on deploy
         )
 
         # Hosted zone
         hosted_zone = route53.HostedZone.from_lookup(
             self,
-            "HostedZone",
+            "existing-zone",
             domain_name=domain_name
         )
 
-        # ACM certificate in us-east-1
+        # ACM certificate
         certificate = acm.Certificate(
             self,
             "FrontendCertificate",
@@ -52,50 +51,54 @@ class FrontendStack(Stack):
             validation=acm.CertificateValidation.from_dns(hosted_zone),
         )
 
-        # CloudFront Origin Access Control (OAC)
-        oac = cloudfront.CfnOriginAccessControl(
+
+        # CloudFront Origin Access Identity
+        cf_oai = cloudfront.OriginAccessIdentity(
             self,
-            "OAC",
-            origin_access_control_config=cloudfront.CfnOriginAccessControl.OriginAccessControlConfigProperty(
-                name="OACForS3",
-                origin_access_control_origin_type="s3",
-                signing_behavior="always",
-                signing_protocol="sigv4"
-            )
+            "frontendOai",
+            comment="OAI for sdvengbegsolutions.com site"
         )
 
+
+        # CloudFront configuration
+        cf_source_configuration = cloudfront.SourceConfiguration(
+            s3_origin_source=cloudfront.S3OriginConfig(
+                s3_bucket_source=s3_bucket,
+                origin_access_identity=cf_oai
+            ),
+            behaviors=[cloudfront.Behavior(
+                is_default_behavior=True,
+                compress=True,
+                allowed_methods=cloudfront.CloudFrontAllowedMethods.ALL,
+                cached_methods=cloudfront.CloudFrontAllowedCachedMethods.GET_HEAD
+            )]
+        )
+
+    
         # CloudFront distribution
         distribution_root = cloudfront.CloudFrontWebDistribution(
             self,
             "RootDomainDistribution",
-            origin_configs=[
-                cloudfront.SourceConfiguration(
-                    s3_origin_source=cloudfront.S3OriginConfig(
-                        s3_bucket_source=s3_bucket
-                    ),
-                    behaviors=[cloudfront.Behavior(is_default_behavior=True)]
-                )
-            ],
+            origin_configs=[cf_source_configuration],
             viewer_certificate=cloudfront.ViewerCertificate.from_acm_certificate(
                 certificate,
                 aliases=[domain_name, f"www.{domain_name}"]
             ),
             default_root_object="index.html",
-            # Serve index.html for all SPA routes
             error_configurations=[
                 cloudfront.CfnDistribution.CustomErrorResponseProperty(
                     error_code=404,
+                    response_code=200,
+                    response_page_path="/index.html"
+                ),
+                cloudfront.CfnDistribution.CustomErrorResponseProperty(
+                    error_code=403,
                     response_code=200,
                     response_page_path="/index.html"
                 )
             ]
         )
 
-        # Attach OAC to distribution
-        cfn_dist = distribution_root.node.default_child
-        cfn_dist.add_property_override(
-            "DistributionConfig.Origins.0.OriginAccessControlId", oac.attr_id
-        )
 
         # Bucket policy to allow only CloudFront access
         s3_bucket.add_to_resource_policy(
@@ -103,12 +106,7 @@ class FrontendStack(Stack):
                 effect=iam.Effect.ALLOW,
                 actions=["s3:GetObject"],
                 resources=[f"{s3_bucket.bucket_arn}/*"],
-                principals=[iam.ServicePrincipal("cloudfront.amazonaws.com")],
-                conditions={
-                    "StringEquals": {
-                        "AWS:SourceArn": f"arn:aws:cloudfront::{self.account}:distribution/{distribution_root.distribution_id}"
-                    }
-                }
+                principals=[iam.CanonicalUserPrincipal(cf_oai.cloud_front_origin_access_identity_s3_canonical_user_id)]
             )
         )
 
@@ -117,5 +115,6 @@ class FrontendStack(Stack):
             self,
             "CloudFrontAliasRecord",
             zone=hosted_zone,
-            target=route53.RecordTarget.from_alias(targets.CloudFrontTarget(distribution_root))
+            target=route53.RecordTarget.from_alias(targets.CloudFrontTarget(distribution_root)),
+            record_name=domain_name
         )
