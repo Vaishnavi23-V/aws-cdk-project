@@ -21,3 +21,7 @@ No cdk attribute found for adding alternative domain name , CNAME. Added manuall
 
 The certificate for cloudfront will be issued only in us-east-1, but there is no construct to specify region in Certificate configuration.
 If we deploy the resources in us-east-1, everything will work fine. But should check, how to get certificate when using different regions.
+
+# Testing creds
+username: user123
+password: User@123

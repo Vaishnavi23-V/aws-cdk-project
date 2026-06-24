@@ -40,7 +40,7 @@ class MyCdkAppStack(Stack):
             self, "HelloApi",
             handler=hello_function,
             default_cors_preflight_options={
-                "allow_origins": ["https://new-awesome-app.com" ],
+                "allow_origins": ["*"],
                 "allow_methods": ["GET", "POST"],
                 "allow_headers": ["Content-Type", "Authorization"]
             }

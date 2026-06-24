@@ -1,0 +1,18 @@
+{
+  "hosted-zone:account=723094108107:domainName=sdvengbegsolutions.com:region=us-east-1": {
+    "Id": "/hostedzone/Z05656112XIKBQTE10450",
+    "Name": "sdvengbegsolutions.com."
+  },
+  "hosted-zone:account=723094108107:domainName=new-awesome-app.com:region=us-east-1": {
+    "Id": "/hostedzone/Z037490836WA5B1B6ODMS",
+    "Name": "new-awesome-app.com."
+  },
+  "hosted-zone:account=723094108107:domainName=auth-checker.com:region=us-east-1": {
+    "Id": "/hostedzone/Z0862237UT3733TEYZES",
+    "Name": "auth-checker.com."
+  },
+  "hosted-zone:account=723094108107:domainName=beg-sdv-dashboard.com:region=us-east-1": {
+    "Id": "/hostedzone/Z08979112FJWF32ON8JSE",
+    "Name": "beg-sdv-dashboard.com."
+  }
+}
